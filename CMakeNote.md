@@ -10,7 +10,7 @@
 
 入门例子，所有文件都在同一个文件夹下。
 
-源代码来自于：
+源代码来自于：https://github.com/yanxicheung/CMakeNote/tree/main/CMakeDemo/case1
 
 ## 目录结构：
 
@@ -43,9 +43,9 @@ add_executable(Demo ${DIR_SRCS})
 
 # case2：
 
-多个目录，多个文件的例子。
+多个目录，多个文件，使用一个CMakeLists的例子。
 
-源代码来自于：
+源代码来自于：https://github.com/yanxicheung/CMakeNote/tree/main/CMakeDemo/case2/quantity
 
 ## 目录结构：
 
@@ -103,16 +103,16 @@ case3是一个多级目录使用CMakeLists.txt进行编译的例子。
 
 ```bash
 .
-├── CMakeLists.txt               //  顶层CMakeList
+├── CMakeLists.txt               // 顶层CMakeList
 ├── hello
-│   ├── CMakeLists.txt
+│   ├── CMakeLists.txt           // 会生成静态库，供顶层调用
 │   ├── include
 │   │   └── hello.h
 │   └── source
 │       └── hello.cpp
 ├── main.cpp
 └── world
-    ├── CMakeLists.txt
+    ├── CMakeLists.txt           // 会生成静态库，供顶层调用
     ├── include
     │   └── world.h
     └── source
@@ -123,7 +123,7 @@ case3是一个多级目录使用CMakeLists.txt进行编译的例子。
 
 ## CMakeLists:
 
-### 顶层：
+顶层：
 
 ```cmake
 cmake_minimum_required(VERSION 2.8)
@@ -150,20 +150,202 @@ add_executable(helloworld main.cpp)
 target_link_libraries(helloworld hello world)
 ```
 
+子目录hello：
+
+```cmake
+set(curr_dir ${CMAKE_CURRENT_SOURCE_DIR})
+
+include_directories(
+    include
+)
+
+aux_source_directory(${curr_dir}/source DIR_HELLO_SRCS)
+
+add_library(hello ${DIR_HELLO_SRCS})    // 默认是静态库STATIC
+```
+
+子目录world：
+
+```cmake
+set(curr_dir ${CMAKE_CURRENT_SOURCE_DIR})
+
+include_directories(
+    include
+)
+
+aux_source_directory(${curr_dir}/source DIR_WORLD_SRCS)
+
+add_library(world ${DIR_WORLD_SRCS})   // 默认是静态库STATIC
+```
 
 
-https://github.com/yanxicheung/cub
 
-https://github.com/yanxicheung/transaction-dsl
+# case4：
+
+在这个示例中我们需要：
+
+1. 为项目增加编译选项，从而可以根据用户的环境和需求选择最合适的编译方案：当ENABLE_TEST打开时生成静态库文件libcub.a并且编译单元测试，生成可执行文件。否则只生成静态库文件libcub.a
+2. 将静态库文件libcub.a及头文件安装到系统目录中。
+
+源代码来自于：https://github.com/yanxicheung/cub
+
+## 目录结构：
+
+```bash
+.
+├── build.sh
+├── CMakeLists.txt            // 顶层CMakeList
+├── doc
+├── include
+│   └── cub
+│       ├── algo
+│       ├── base
+│       ├── cub.h
+│       ├── dci
+│       ├── ...
+├── README.md
+├── src
+│   ├── CMakeLists.txt        // 会生成静态库，供顶层调用
+│   ├── log
+│   ├── mem
+│   └── sched
+└── test
+    ├── CMakeLists.txt       // 会生成单元测试的可执行文件
+    ├── main.cpp
+    ├── ...
+```
 
 
+
+## CMakeLists:
+
+顶层
+
+```cmake
+cmake_minimum_required(VERSION 2.8)
+
+project("cub")
+
+if(UNIX)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-offsetof  -g -std=c++14")
+endif()
+
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+add_subdirectory("src")
+
+if(ENABLE_TEST)
+  add_subdirectory(test)
+endif()
+
+install(DIRECTORY include/cub DESTINATION include)  #将头文件安装到/usr/local/include中
+```
+
+静态库libcub.a
+
+```cmake
+FILE(GLOB_RECURSE all_files
+*.cpp
+*.cc
+*.c++
+*.c
+*.C)
+
+add_library(cub STATIC ${all_files} ../include/cub/network/ByteOrder.h ../test/TestByteOrder.cpp)
+
+install(TARGETS cub ARCHIVE DESTINATION lib)  #将libcub.a安装到/usr/local/lib中
+# 头文件安装的部分也可以写在这里：install(DIRECTORY ../include/cub DESTINATION include)
+```
+
+单元测试：
+
+```cmake
+project(cub-test)
+
+include_directories(${MAGELLAN_INCLUDE_DIR}) #可以不写，顶层cmakelists已经包含了
+
+if(UNIX)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+endif()
+
+FILE(GLOB_RECURSE all_files
+*.cpp
+*.cc
+*.c++
+*.c
+*.C)
+
+add_executable(cub-test ${all_files})
+target_link_libraries(cub-test cut cub)
+```
+
+只编译库文件：
+
+```shell
+cd cub
+mkdir build
+cd build
+cmake ..
+make
+```
+
+安装库文件：
+
+```bash
+sudo make install
+```
+
+生成单元测试可执行文件：
+
+```bash
+cd build
+cmake -DENABLE_TEST=1 ..   #cmake -DENABLE_TEST=ON .. 也可以
+make
+./test/cub-test
+```
+
+# case5：
+
+这个示例主要用来演示对源代码的条件编译。
+
+源代码来自于：https://github.com/yanxicheung/CMakeNote/tree/main/CMakeDemo/case5
+
+## 目录结构：
+
+```bash
+.
+├── CMakeLists.txt
+├── main.cpp
+├── MathFunctions.cpp
+└── MathFunctions.h
+```
+
+## CMakeLists:
+
+```cmake
+cmake_minimum_required (VERSION 2.8)
+project (Demo2)
+
+if(DEFINED USE_MYMATH)
+    message("USE_MYMATH is defined")
+    add_definitions(-DUSE_MYMATH) 
+else()
+    message("USE_MYMATH is not defined")
+endif()
+
+aux_source_directory(. DIR_SRCS)
+add_executable(Demo ${DIR_SRCS})
+```
 
 
 
 # 参考文献：
 
-1. https://www.hahack.com/codes/cmake/
+1. CMake入门实战：https://www.hahack.com/codes/cmake/
 2. https://github.com/wzpan/cmake-demo
+3. CMake条件编译：https://www.cnblogs.com/binbinjx/p/5648957.html
+4. CMake和Cpp的条件编译(一)：https://www.dennisthink.com/2020/10/18/877/
+5. CMake和Cpp的条件编译(二)：https://www.dennisthink.com/2020/10/18/893/
 
 
 
